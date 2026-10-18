@@ -1,0 +1,21 @@
+{
+  "name": "@red-cup-engineering/lightning-reward-contract-service",
+  "version": "0.1.0-dev.1",
+  "type": "module",
+  "private": true,
+  "description": "Regtest-only full-term prefunded reward contracts, atomic reservations, pooled msat withdrawals and CLN payment recovery",
+  "engines": {"node": ">=22.16.0"},
+  "exports": {
+    "./reservation-store": "./src/reservation-store.mjs",
+    "./http-regtest": "./src/http-regtest.mjs",
+    "./cln-regtest": "./src/cln-regtest.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "serve:regtest": "node scripts/serve-regtest.mjs"
+  },
+  "dependencies": {
+    "@red-cup-engineering/capability-pricing-service": "0.1.4"
+  },
+  "license": "MIT"
+}

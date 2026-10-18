@@ -1,0 +1,21 @@
+{
+  "version": "regtest-example-2026-10-17-no-external-sale",
+  "plans": [
+    {
+      "planId": "regtest-free-contract",
+      "termsRef": "urn:yabcm:regtest:free-eight-hour-v1",
+      "grantClass": "free",
+      "durationSeconds": 28800,
+      "maxBaseRewardMsatPerHour": "1100",
+      "actualRateMsatPerHour": "1100",
+      "maxTotalMultiplierBps": 10000,
+      "maxExtraBonusMsat": "0",
+      "maxWithdrawals": 2,
+      "maxRoutingFeeMsatEach": "1000",
+      "minimumPayoutMsat": "1000",
+      "maxClaimsPerUtcDay": 3,
+      "minGapSeconds": 0,
+      "nonOverlapping": true
+    }
+  ]
+}
