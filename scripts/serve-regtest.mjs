@@ -9,6 +9,7 @@ import {resolve} from 'node:path';
 import {createLightningRewardReservationStore} from '../src/reservation-store.mjs';
 import {createCLNRegtestAdapter} from '../src/cln-regtest.mjs';
 import {createRewardRegtestHttp} from '../src/http-regtest.mjs';
+import {loadRegtestSiteAssets} from '../src/regtest-site-assets.mjs';
 import {compileFixedTermRewardCeiling} from '@red-cup-engineering/capability-pricing-service/fixed-term-reward-ceiling';
 import {assessPrefundedLightningSale,projectCoreLightningOutbound} from '@red-cup-engineering/capability-pricing-service/prefunded-lightning-inventory';
 const {values}=parseArgs({options:{
@@ -16,6 +17,7 @@ const {values}=parseArgs({options:{
  'lightning-dir':{type:'string'},'secret-file':{type:'string'},
  'safety-reserve-msat':{type:'string'},'external-reserve-msat':{type:'string'},
  'withdraw-minimum-msat':{type:'string'}, 'port':{type:'string'},'host':{type:'string'},
+ 'demo-dist':{type:'string'},
 }});
 function mandatory(name){const x=values[name];if(!x)throw Error('--'+name+' is required');return x;}
 async function main(){
@@ -47,7 +49,8 @@ async function main(){
    return {verified:false};
   return {verified:true,sourceRef:'urn:yabcm:operator-regtest-only-free-grant:'+order.orderId};
  };
- const server=createRewardRegtestHttp({store,wallet,verifyGrant,operatorToken:token});
+ const staticDemoAssets=values['demo-dist'] ? await loadRegtestSiteAssets(values['demo-dist']) : null;
+ const server=createRewardRegtestHttp({store,wallet,verifyGrant,operatorToken:token,staticDemoAssets});
  server.listen(port,host,()=>process.stdout.write(`Regtest-only reservation operator: http://${host}:${port}\n`));
  const shutdown=()=>server.close(()=>{store.close();process.exit(0)});
  process.once('SIGTERM',shutdown);process.once('SIGINT',shutdown);
