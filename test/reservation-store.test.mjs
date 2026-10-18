@@ -186,7 +186,7 @@ test('free plan enforcement is server-owned: cannot overlap or exceed three in U
 }));
 test('contract references are permanently immutable across process restart',()=>harness(({store,path,config})=>{
  store.close();
- const tampered={...config,sourceCatalog:{...config.sourceCatalog,plans:config.sourceCatalog.plans.map(p=>p.planId==='free-8h'?{...p,actualRateMsatPerHour:'1200'}:p)}};
+ const tampered={...config,sourceCatalog:{...config.sourceCatalog,plans:config.sourceCatalog.plans.map(p=>p.planId==='free-8h'?{...p,actualRateMsatPerHour:'1000'}:p)}};
  assert.throws(()=>createLightningRewardReservationStore(tampered),/terms changed/);
 }));
 test('unexpected wallet depletion freezes new offers but preserves pre-existing customer obligations',()=>harness(({store,observe,clock})=>{
