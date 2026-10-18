@@ -83,3 +83,41 @@ All HTTP requests are small bounded JSON; the operator is responsible for confid
 7. Cohort acquisition economics and legitimate rewards provider rate from source evidence, not headline eCPM / synthetic screenshots.
 
 **Done definition:** on actual regtest CLN, two customers racing for the final wallet-backed finite term produce exactly one durable entitlement; a small reward accumulates across multiple eligible intervals into one payable invoice, which survives restart and is independently reconciled as complete/failed; no customer is charged and no reward is advertised without the real provider/eligibility/legal and transaction chain being received.
+
+## Installed-source regression and same-origin regtest receiving (October 18)
+
+The product is no longer just a browser-local timer or a read-only reserve quote. This specific Engineering source now has transactional SQLite custody for a **valueless regtest financial lifecycle** and a route to mount the owning Causeway's *already compiled* free game beside its **public read-only** `/v1/catalog` endpoint.
+
+**Defects found through execution and corrected in the source:**
+
+1. A paid invoice reduced outstanding ledger liabilities, but a new purchase could still use the **pre-payment Lightning wallet snapshot**, falsely recovering headroom and overselling the node. The SQLite book now holds `configuration.required_observation_seq` as a durable monotonic freshness barrier. Dispatch and terminal payout results invalidate all earlier wallet observations; an unresolved outgoing payment stops new reservations; only a **new post-finality** wallet reading restores availability. Legacy database migration invalidates old observations. Regression: [liquidity-barrier tests](test/liquidity-barrier.test.mjs), including an original reproducible overbooking case, pending/failed results and old-book migration.
+2. The Core Lightning CLI path previously mixed positional placeholders and RPC named parameters without selecting `lightning-cli -k`. Its actual subprocess now uses documented `--regtest -k`, `decode string=<invoice>`, `xpay invstring=<invoice> maxfee=<msat>`, and `listpays payment_hash=<hash>`. Regression: [real subprocess adapter tests](test/cln-cli-process.test.mjs).
+3. Initial real CLI execution found a unit mismatch: a rate quoted in **msat per hour** was compared against an **entire finite-term** cap, then an early correction used milliseconds per hour while the duration field was in seconds. The authoritative bound is `ceil(actual_rate_msat_per_hour × duration_seconds / 3600)`, which must not exceed the full-term cap derived by the original pricing provider. The [short-term pricing regressions](test/short-term-pricing.test.mjs) demonstrate an admissible 60-second plan and refuse an overpromising plan.
+4. We tested actual startup/transport, not only injected in-process functions: [installed CLI test](test/installed-regtest-cli.test.mjs) starts `scripts/serve-regtest.mjs` as an operating-system process, substitutes only the upstream pricing package and the valueless CLI provider, sends HTTP requests, admits an authorized free term, accrues server-side, prepares and dispatches a **mock** invoice, reconciles provider status, observes stale-wallet suspension, and requires a fresh wallet read.
+5. [Static asset admission](src/regtest-site-assets.mjs) will **only** mount the exact source-built free demo's ten nonmonetary files. It rejects missing assets, escaping symlinks, oversized files and any `/api/status.json` claiming real rewards, custody, or x402. The operator HTTP host remains `127.0.0.1`; `GET /v1/catalog` remains anonymous and read-only, but `/ops/*` requires the operator secret. All content is CSP-confined to same-origin code and a same-origin catalog read.
+
+### Assemble a real local preview from the **owning** sections
+
+First, as the authorized builder, build the Causeway YABCM site from its `site.json` using the original [Red Cup Web Game Engineering publisher](https://github.com/red-cup-engineering/web-game-services-section/tree/main/services/virtual-miner-experience-service):
+
+```sh
+cd /path/to/web-game-services-section/services/virtual-miner-experience-service
+npm test
+node scripts/build.mjs \
+ --config /path/to/public-services-section/services/public-agent-services-section/sites/yabcm.assist.561.group/site.json \
+ --out /path/to/public-services-section/services/public-agent-services-section/sites/yabcm.assist.561.group/dist
+```
+
+Then use the normal operator-secret and regtest-node arguments in the earlier CLI command, **adding**:
+
+```sh
+--demo-dist /path/to/public-services-section/services/public-agent-services-section/sites/yabcm.assist.561.group/dist
+```
+
+The resulting single *local-only* listener can return `GET /` (real built YABCM HTML), `GET /assets/regtest-catalog-client.mjs`, `GET /api/status.json`, `GET /v1/catalog` (current laboratory plan-capacity quote), and authenticated `POST /ops/*`. The game shows a collapsed **Regtest developer laboratory** readout; if no backend is mounted, that readout fails closed and **the demo remains playable**. It never moves funds or offers a real purchase from the visitor's browser.
+
+**Installation gates not met:** there is no actual Core Lightning or bitcoind regtest daemon in this ChatGPT working container, no independently installed/published upstream `@red-cup-engineering/capability-pricing-service@0.1.4` closure in the daemon run, no cloud routing, no authenticated customer identity or completed real invoice payment; the process integration uses controlled fake `lightning-cli` responses. No advertiser network is approved to pay sats. Do not treat a native test, static build or local demo HTTP response as an external payout.
+
+**Receiving criteria:** run this same CLI and end-to-end sequence with two real CLN regtest nodes and valueless channels; confirm channel conditions, no double sends after restart, exact full-term reservation for changing plans, account pooling of msat over multiple finite contracts, real invoice preimage and fee receipts, underfunding and payout recovery. Independently receive the original Public website over its final chosen route before promoting it. Mainnet wallets, user payments, and crypto conversion remain disabled pending proper legal/financial/provider authority.
+
+The [authoritative open Finance issue](https://github.com/red-cup-engineering/financial-engineering-services-section/issues/36) tracks the remaining actual CLN, contractual payment, operational custody and public receiving work rather than calling this laboratory service deployed.
