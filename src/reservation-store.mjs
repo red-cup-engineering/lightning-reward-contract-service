@@ -276,9 +276,10 @@ export function createLightningRewardReservationStore({databasePath, walletId, n
       return {state:'active',replay:false,expiresAt:utc(expires)};
     });
   }
-  function accrue(orderId) {
+  // Call only inside an exclusive SQLite transaction. Paid/earned balances are
+  // moved from reserved terms, never independently minted by the UI.
+  function materializeOrder(orderId) {
     label(orderId,'orderId');
-    return transaction(()=>{
       const o=getOrder.get(orderId);if(!o)throw Error('unknown order');
       if(!['active','earned','payout-in-flight'].includes(o.status))return {state:o.status,earnedMsat:o.earned_msat};
       const p=JSON.parse(o.plan_json),now=nowMillis(clock);
@@ -295,7 +296,13 @@ export function createLightningRewardReservationStore({databasePath, walletId, n
         event(orderId,'accrued','urn:source-owned:server-clock',{from:prior.toString(),to:final.toString(),status:nextStatus});
       }
       return {state:nextStatus,earnedMsat:final.toString(),pendingMsat:(final-integer(o.paid_msat,'paid')).toString()};
-    });
+  }
+  function accrue(orderId) {
+    return transaction(() => materializeOrder(orderId));
+  }
+  function materializePrincipal(principalId) {
+    const ids=db.prepare("SELECT order_id FROM reward_orders WHERE principal_id=? AND status IN ('active','earned','payout-in-flight')").all(principalId);
+    for(const row of ids)materializeOrder(row.order_id);
   }
   /** A human's actual Lightning payout collects fractional earned rewards from
    * multiple finite contracts. All credited msat must remain attributable to
@@ -308,6 +315,7 @@ export function createLightningRewardReservationStore({databasePath, walletId, n
     const amount=integer(amountMsat,'payout amount');const fee=integer(feeLimitMsat,'fee limit');
     if(amount<integer(accountWithdrawalMinimumMsat,'withdrawal floor'))throw Error('below account withdrawal minimum');
     return transaction(()=>{
+      materializePrincipal(principalId);
       const before=getPayout.get(requestId);
       if(before){
         if(before.principal_id!==principalId||before.payment_hash!==paymentHash||before.amount_msat!==amountMsat||before.invoice_ref!==invoiceRef||before.max_fee_msat!==feeLimitMsat)
@@ -458,12 +466,15 @@ export function createLightningRewardReservationStore({databasePath, walletId, n
   }
   function accountDetails(principalId){
     label(principalId,'principalId');
-    const orders=db.prepare('SELECT * FROM reward_orders WHERE principal_id=? ORDER BY order_id').all(principalId);
+    return transaction(()=>{
+      materializePrincipal(principalId);
+      const orders=db.prepare('SELECT * FROM reward_orders WHERE principal_id=? ORDER BY order_id').all(principalId);
     const earned=orders.reduce((sum,o)=>sum+integer(o.earned_msat,'earned'),0n);
     const paid=orders.reduce((sum,o)=>sum+integer(o.paid_msat,'paid'),0n);
     const inFlight=db.prepare("SELECT a.amount_msat FROM payout_allocations a JOIN payouts p ON p.request_id=a.request_id WHERE p.principal_id=? AND p.state IN ('prepared','in-flight','unknown')").all(principalId).reduce((sum,p)=>sum+integer(p.amount_msat,'pending'),0n);
     return {principalId,earnedMsat:earned.toString(),paidMsat:paid.toString(),lockedPayoutMsat:inFlight.toString(),
       currentlyClaimableMsat:(earned-paid-inFlight).toString(),contracts:orders.length,withdrawalMinimumMsat:accountWithdrawalMinimumMsat};
+    });
   }
   function details(orderId){
     const o=getOrder.get(label(orderId,'orderId'));if(!o)return null;
