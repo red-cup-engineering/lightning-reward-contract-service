@@ -26,11 +26,21 @@ function bearerOk(header,token){
  * The operating adapter, rather than request JSON, supplies all wallet reads,
  * invoice verification and payment finality.
  */
-export function createRewardRegtestHttp({store,wallet,verifyGrant,operatorToken}={}){
+export function createRewardRegtestHttp({store,wallet,verifyGrant,operatorToken,staticDemoAssets=null}={}){
  if(typeof operatorToken!=='string'||Buffer.byteLength(operatorToken)<32)throw Error('operator token >=32 bytes required');
  if(!store||!wallet||typeof verifyGrant!=='function')throw Error('original wallet/book/receipt providers required');
  return createServer(async(req,res)=>{
   try{
+   // Operator-selected PUBLIC DEMO files only; never expose book or keys.
+   // The same loopback origin can serve /v1/catalog alongside YABCM static JS.
+   if(req.method==='GET'&&staticDemoAssets?.has(req.url)){
+    const entry=staticDemoAssets.get(req.url);
+    res.writeHead(200,{
+     'content-type':entry.contentType,'cache-control':'no-store',
+     'x-content-type-options':'nosniff','referrer-policy':'no-referrer',
+     'content-security-policy':"default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    });res.end(entry.data);return;
+   }
    if(req.method==='GET'&&req.url==='/health')return send(res,200,{ok:true,network:'regtest',financialEffects:'disabled-by-default',safeForMainnet:false});
    if(req.method==='GET'&&req.url==='/v1/catalog')return send(res,200,{
     kind:'RewardContractCatalogRegtest.v1',mainnetSalesEnabled:false,
