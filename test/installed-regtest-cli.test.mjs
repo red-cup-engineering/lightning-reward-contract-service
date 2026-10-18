@@ -38,7 +38,7 @@ async function runInstalled(use){
  // A compiled but explicitly zero-money Causeway public demo, same loopback origin.
  const demo=join(dir,'site-dist');mkdirSync(demo);mkdirSync(join(demo,'assets'));mkdirSync(join(demo,'api'));
  const files=['index.html','assets/browser.mjs','assets/model.mjs',
-  'assets/contract-browser.mjs','assets/contract-experience.mjs',
+  'assets/contract-browser.mjs','assets/contract-experience.mjs','assets/regtest-catalog-client.mjs',
   'assets/style.css','api/status.json','robots.txt'];
  for(const file of files)writeFileSync(join(demo,file),file==='api/status.json'?
   JSON.stringify({realRewardsEnabled:false,walletOrCustodyEnabled:false,x402PaymentsEnabled:false,playableDemo:true}):
