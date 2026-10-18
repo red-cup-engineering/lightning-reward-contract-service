@@ -35,6 +35,15 @@ async function runInstalled(use){
  const dir=mkdtempSync(join(tmpdir(),'yabcm-installed-regtest-'));
  const bin=join(dir,'bin');mkdirSync(bin);const calls=join(dir,'calls.jsonl');
  fakeCli(join(bin,'lightning-cli'),calls);
+ // A compiled but explicitly zero-money Causeway public demo, same loopback origin.
+ const demo=join(dir,'site-dist');mkdirSync(demo);mkdirSync(join(demo,'assets'));mkdirSync(join(demo,'api'));
+ const files=['index.html','assets/browser.mjs','assets/model.mjs',
+  'assets/contract-browser.mjs','assets/contract-experience.mjs',
+  'assets/style.css','api/status.json','robots.txt'];
+ for(const file of files)writeFileSync(join(demo,file),file==='api/status.json'?
+  JSON.stringify({realRewardsEnabled:false,walletOrCustodyEnabled:false,x402PaymentsEnabled:false,playableDemo:true}):
+  file==='index.html'?'<html><body>YABCM regtest dev preview · no real BTC</body></html>':'public-demo');
+
  const catalog={version:'regtest-short-integration-1',plans:[{
   planId:'regtest-free-contract',termsRef:'urn:yabcm:regtest:smoke-one-minute-v1',
   grantClass:'free',durationSeconds:60,actualRateMsatPerHour:'7200000',
@@ -50,7 +59,7 @@ async function runInstalled(use){
   '--wallet-id','regtest-payout','--lightning-dir',join(dir,'node'),
   '--secret-file',join(dir,'secret'),'--safety-reserve-msat','10000',
   '--external-reserve-msat','0','--withdraw-minimum-msat','1000',
-  '--host','127.0.0.1','--port',String(port)];
+  '--host','127.0.0.1','--port',String(port),'--demo-dist',demo];
  const srv=spawn(process.execPath,args,{cwd:root,env:{...process.env,PATH:bin+':'+process.env.PATH},
   stdio:['ignore','pipe','pipe']});
  let log='';srv.stdout.on('data',c=>log+=c);srv.stderr.on('data',c=>log+=c);
@@ -69,7 +78,7 @@ async function runInstalled(use){
     ...(authorized?{authorization:'Bearer '+token}:{})},body:JSON.stringify(body)});
    return {code:r.status,data:await r.json()};
   };
-  await use({get,post,calls});
+  await use({get,post,calls,base});
  }finally{
   if(srv.exitCode===null){srv.kill('SIGTERM');await Promise.race([once(srv,'exit'),new Promise(done=>setTimeout(done,1000))]);}
   if(srv.exitCode===null)srv.kill('SIGKILL');
@@ -77,8 +86,14 @@ async function runInstalled(use){
  }
 }
 test('whole regtest CLI installation exercises HTTP, atomic booking, earned msat, invoice payment and new wallet snapshot',async()=>{
- await runInstalled(async({get,post,calls})=>{
+ await runInstalled(async({get,post,calls,base})=>{
   assert.equal((await get('/health')).code,200);
+  const home=await fetch(base+'/');assert.equal(home.status,200);
+  assert.match(await home.text(),/YABCM regtest dev preview/);
+  const js=await fetch(base+'/assets/browser.mjs');assert.equal(js.status,200);
+  assert.match(js.headers.get('content-security-policy'),/connect-src 'self'/);
+  assert.equal((await get('/api/status.json')).data.realRewardsEnabled,false);
+  assert.equal((await post('/ops/account',{principalId:'alice'},false)).code,401);
   assert.equal((await get('/v1/catalog')).data.entries[0].availability.available,false);
   assert.equal((await post('/ops/wallet/refresh',{},false)).code,401);
   assert.equal((await post('/ops/wallet/refresh')).code,200);
