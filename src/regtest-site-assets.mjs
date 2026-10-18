@@ -11,6 +11,7 @@ const routes=Object.freeze({
  '/assets/model.mjs':'assets/model.mjs',
  '/assets/contract-browser.mjs':'assets/contract-browser.mjs',
  '/assets/contract-experience.mjs':'assets/contract-experience.mjs',
+ '/assets/regtest-catalog-client.mjs':'assets/regtest-catalog-client.mjs',
  '/assets/style.css':'assets/style.css',
  '/api/status.json':'api/status.json',
  '/robots.txt':'robots.txt',
