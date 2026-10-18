@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {loadRegtestSiteAssets} from '../src/regtest-site-assets.mjs';
 const names=['index.html','assets/browser.mjs','assets/model.mjs','assets/contract-browser.mjs',
- 'assets/contract-experience.mjs','assets/style.css','api/status.json','robots.txt'];
+ 'assets/contract-experience.mjs','assets/regtest-catalog-client.mjs','assets/style.css','api/status.json','robots.txt'];
 async function built(run){
  const dir=mkdtempSync(join(tmpdir(),'yabcm-preview-static-'));
  mkdirSync(join(dir,'assets'));mkdirSync(join(dir,'api'));
@@ -15,7 +15,7 @@ async function built(run){
 }
 test('operator can mount only the declared eight zero-money public YABCM routes',()=>built(async dir=>{
  const map=await loadRegtestSiteAssets(dir);
- assert.equal(map.size,8);
+ assert.equal(map.size,9);
  assert.equal(map.get('/').contentType,'text/html; charset=utf-8');
  assert.equal(map.get('/assets/browser.mjs').contentType,'text/javascript; charset=utf-8');
  assert.equal(map.has('/ops/account'),false);
