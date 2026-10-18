@@ -189,3 +189,27 @@ test('contract references are permanently immutable across process restart',()=>
  const tampered={...config,sourceCatalog:{...config.sourceCatalog,plans:config.sourceCatalog.plans.map(p=>p.planId==='free-8h'?{...p,actualRateMsatPerHour:'1200'}:p)}};
  assert.throws(()=>createLightningRewardReservationStore(tampered),/terms changed/);
 }));
+test('unexpected wallet depletion freezes new offers but preserves pre-existing customer obligations',()=>harness(({store,observe,clock})=>{
+ observe('21000');
+ store.reserve({orderId:'a',principalId:'a',planId:'free-8h'});
+ clock.now+=1000;
+ observe('1500','urn:cln:outbound-depleted');
+ assert.equal(store.availableFor('free-8h').available,false);
+ assert.equal(store.reserve({orderId:'b',principalId:'b',planId:'free-8h'}).status,'sold-out');
+ assert.equal(store.book().claims.length,1);
+ assert.equal(store.details('a').status,'reserved');
+}));
+test('recovery after regtest wallet dispatch state does not issue a second Lightning payment',()=>harness(({store,open,observe,clock,setStore})=>{
+ observe();store.reserve({orderId:'a',principalId:'alice',planId:'free-8h'});
+ store.activate({orderId:'a',receiptRef:'urn:regtest:grant'});
+ clock.now+=2*3600000;store.accrue('a');
+ store.preparePooledPayout({principalId:'alice',requestId:'p1',invoiceRef:'lnbcrt-test',paymentHash:'hash-1',amountMsat:'1500',feeLimitMsat:'500'});
+ assert.equal(store.markPayoutInFlight('p1').state,'in-flight');
+ store.close();const restored=open();setStore(restored);
+ assert.equal(restored.payoutDetails('p1').state,'in-flight');
+ assert.equal(restored.markPayoutInFlight('p1').replay,true);
+ assert.equal(restored.accountDetails('alice').lockedPayoutMsat,'1500');
+ assert.equal(restored.reconcilePayout({requestId:'p1',paymentHash:'hash-1',networkStatus:'pending',receiptRef:'urn:cln:pending'}).state,'unknown');
+ assert.equal(restored.reconcilePayout({requestId:'p1',paymentHash:'hash-1',networkStatus:'complete',amountSentMsat:'1700',receiptRef:'urn:cln:confirmed'}).state,'complete');
+ assert.equal(restored.accountDetails('alice').paidMsat,'1500');
+}));
