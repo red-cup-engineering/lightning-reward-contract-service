@@ -64,7 +64,7 @@ export function createLightningRewardReservationStore({databasePath, walletId, n
       throw new Error('duration invalid');
     // An hourly rate is not a whole-term liability. Compare the term's
     // exact upper bound, rounded up, not a fictitious extra hour.
-    const actualTermMax=(rate * BigInt(duration) + 3599999n) / 3600000n;
+    const actualTermMax=(rate * BigInt(duration) + 3599n) / 3600n;
     if (rewardCap < actualTermMax || rewardCap === 0n)
       throw new Error('unbackable plan / insufficient term ceiling');
     if (!['free', 'sponsored', 'paid'].includes(p.grantClass)) throw new TypeError('grantClass unknown');
