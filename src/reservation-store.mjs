@@ -59,16 +59,21 @@ export function createLightningRewardReservationStore({databasePath, walletId, n
     const rewardCap = integer(ceiling.maxRewardMsat, 'ceiling.maxRewardMsat');
     const feeCap = integer(ceiling.maxRoutingFeeMsat, 'ceiling.maxRoutingFeeMsat');
     const rate = integer(p.actualRateMsatPerHour, 'actualRateMsatPerHour');
-    if (rewardCap < rate || rewardCap === 0n) throw new Error('unbackable plan / insufficient term ceiling');
+    const duration = Number(ceiling.durationSeconds);
+    if (!Number.isSafeInteger(duration) || duration < 1 || duration > 366 * 86400)
+      throw new Error('duration invalid');
+    // An hourly rate is not a whole-term liability. Compare the term's
+    // exact upper bound, rounded up, not a fictitious extra hour.
+    const actualTermMax=(rate * BigInt(duration) + 3599999n) / 3600000n;
+    if (rewardCap < actualTermMax || rewardCap === 0n)
+      throw new Error('unbackable plan / insufficient term ceiling');
     if (!['free', 'sponsored', 'paid'].includes(p.grantClass)) throw new TypeError('grantClass unknown');
     const minPayout = integer(p.minimumPayoutMsat, 'minimumPayoutMsat');
     if(!Number.isSafeInteger(p.maxClaimsPerUtcDay)||p.maxClaimsPerUtcDay<1||p.maxClaimsPerUtcDay>1440)throw new TypeError('per-principal daily contract issue limit required');
     if(!Number.isSafeInteger(p.minGapSeconds)||p.minGapSeconds<0||p.minGapSeconds>366*86400)throw new TypeError('minGapSeconds required');
     if(typeof p.nonOverlapping!=='boolean')throw new TypeError('nonOverlapping must be declared by product');
     if (minPayout <= 0n) throw new TypeError('minimum payout must be positive');
-    const duration = Number(ceiling.durationSeconds);
-    if (!Number.isSafeInteger(duration) || duration < 1 || duration > 366 * 86400)
-      throw new Error('duration invalid');
+
     catalog.set(p.planId, Object.freeze({
       id:p.planId,termsRef:p.termsRef,sourceVersion:sourceCatalog.version,
       class:p.grantClass,durationSeconds:duration,actualRateMsatPerHour:rate.toString(),
