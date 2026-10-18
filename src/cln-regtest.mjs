@@ -19,7 +19,7 @@ export function createCLNRegtestAdapter({walletId, lightningDir, rpc = null, clo
  if(!rpc && (typeof lightningDir!=='string'||!lightningDir.startsWith('/')))
   throw new Error('absolute CLN_LIGHTNING_DIR or trusted RPC test adapter required');
  const call = rpc ?? (async(command,...args) => {
-  const {stdout}=await exec('lightning-cli',['--regtest','--lightning-dir='+lightningDir,command,...args],
+  const {stdout}=await exec('lightning-cli',['--regtest','--lightning-dir='+lightningDir,'-k',command,...args],
    {timeout:10000,maxBuffer:1024*1024});return JSON.parse(stdout);
  });
  async function checkedCall(command,...args){
@@ -39,7 +39,7 @@ export function createCLNRegtestAdapter({walletId, lightningDir, rpc = null, clo
  async function decodeInvoice(invoice){
   if(typeof invoice!=='string'||!invoice.startsWith('lnbcrt')||invoice.length>1600)
    throw new Error('only finite-amount regtest BOLT11 invoices are supported');
-  const d=await checkedCall('decode',invoice);
+  const d=await checkedCall('decode','string='+invoice);
   if(d.type!=='bolt11 invoice'||d.valid!==true||d.currency!=='bcrt'||!d.payment_hash)
    throw new Error('invalid regtest BOLT11 invoice');
   const amount=msat(d.amount_msat,'invoice amount');
@@ -53,12 +53,12 @@ export function createCLNRegtestAdapter({walletId, lightningDir, rpc = null, clo
   if(!invoice.startsWith('lnbcrt'))throw new Error('regtest invoice required');
   const fee=msat(maxFeeMsat,'maximum fee');
   // xpay accepts maxfee exact msat argument by keyword; never use unbounded defaults.
-  return checkedCall('xpay',invoice,'null',fee.toString()+'msat');
+  return checkedCall('xpay','invstring='+invoice,'maxfee='+fee.toString()+'msat');
  }
  async function observePayment(paymentHash){
   if(typeof paymentHash!=='string'||!/^([0-9a-f]{64})$/.test(paymentHash))
    throw new Error('invalid payment hash');
-  const r=await checkedCall('listpays','null',paymentHash);
+  const r=await checkedCall('listpays','payment_hash='+paymentHash);
   if(!r||!Array.isArray(r.pays))throw new Error('malformed CLN payment observation');
   const relevant=r.pays.filter(p=>p.payment_hash===paymentHash);
   if(relevant.length!==1)return {status:'pending',sourceRef:'urn:cln:regtest:unresolved:'+paymentHash};
