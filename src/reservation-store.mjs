@@ -82,7 +82,7 @@ export function createLightningRewardReservationStore({databasePath, walletId, n
   const db=new DatabaseSync(databasePath, {timeout:5000});
   chmodSync(databasePath,0o600); // user identifiers and financial reservations are confidential
   db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;
-  CREATE TABLE IF NOT EXISTS configuration (id INTEGER PRIMARY KEY CHECK(id=1),wallet_id TEXT NOT NULL,network TEXT NOT NULL);
+  CREATE TABLE IF NOT EXISTS configuration (id INTEGER PRIMARY KEY CHECK(id=1),wallet_id TEXT NOT NULL,network TEXT NOT NULL,required_observation_seq INTEGER NOT NULL DEFAULT 1);
   CREATE TABLE IF NOT EXISTS term_identities (terms_ref TEXT PRIMARY KEY,sha256 TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS wallet_observations (seq INTEGER PRIMARY KEY AUTOINCREMENT,
     wallet_id TEXT NOT NULL, network TEXT NOT NULL, source_ref TEXT NOT NULL, observed_at TEXT NOT NULL,
@@ -111,6 +111,18 @@ export function createLightningRewardReservationStore({databasePath, walletId, n
     order_id TEXT NOT NULL, event_type TEXT NOT NULL, source_ref TEXT NOT NULL,
     at TEXT NOT NULL, metadata_json TEXT NOT NULL);
   `); // configuration values inserted with a bound statement below
+  // Older release files have no observation-freshness watermark. Migrate
+  // conservatively: invalidate EVERY historical wallet reading, because an
+  // already-posted payout might have spent those funds before this upgrade.
+  const columns=db.prepare('PRAGMA table_info(configuration)').all().map(c=>c.name);
+  if(!columns.includes('required_observation_seq')){
+    db.exec('BEGIN IMMEDIATE');
+    try{
+      db.exec('ALTER TABLE configuration ADD COLUMN required_observation_seq INTEGER NOT NULL DEFAULT 1');
+      db.exec('UPDATE configuration SET required_observation_seq = (SELECT COALESCE(MAX(seq),0)+1 FROM wallet_observations)');
+      db.exec('COMMIT');
+    }catch(error){db.exec('ROLLBACK');throw error;}
+  }
   // sqlite3 DatabaseSync exec cannot bind values: separate statement.
   db.prepare('INSERT OR IGNORE INTO configuration(id,wallet_id,network) VALUES(1,?,?)').run(walletId,network);
   const conf=db.prepare('SELECT wallet_id,network FROM configuration WHERE id=1').get();
@@ -138,9 +150,21 @@ export function createLightningRewardReservationStore({databasePath, walletId, n
     try {const result=work();db.exec('COMMIT');return result;}
     catch(e){db.exec('ROLLBACK');throw e;}
   }
+  // A wallet read made before an outgoing payment is never reused after
+  // that payment changes the node's actual balance. Source timestamps are
+  // insufficient: several wallet reads, dispatches and completions may share
+  // the same millisecond. The database sequence is the authoritative barrier.
+  function invalidateWalletSnapshot(){
+    const row=db.prepare('SELECT COALESCE(MAX(seq),0)+1 AS next_seq FROM wallet_observations').get();
+    db.prepare('UPDATE configuration SET required_observation_seq=? WHERE id=1').run(row.next_seq);
+  }
   function snapshotFromDb() {
     const v=getLatestWallet.get();
     if (!v) throw new Error('wallet-unobserved');
+    if(db.prepare("SELECT 1 FROM payouts WHERE state IN ('in-flight','unknown') LIMIT 1").get())
+      throw new Error('payout-unresolved-sales-paused');
+    const floor=db.prepare('SELECT required_observation_seq AS seq FROM configuration WHERE id=1').get().seq;
+    if(v.seq<floor)throw new Error('wallet-refresh-required-after-outgoing-payment');
     return {id:v.wallet_id,network:v.network,sourceRef:v.source_ref,observedAt:v.observed_at,
       ready:v.ready===1,spendableOutboundMsat:v.usable_outbound_msat};
   }
@@ -330,6 +354,7 @@ export function createLightningRewardReservationStore({databasePath, walletId, n
       if(p.state==='in-flight'||p.state==='unknown')return {state:p.state,replay:true};
       if(p.state!=='prepared')throw Error('payout not prepared');
       db.prepare("UPDATE payouts SET state='in-flight',updated_at=? WHERE request_id=?").run(utc(nowMillis(clock)),requestId);
+      invalidateWalletSnapshot();
       const owners=db.prepare('SELECT order_id FROM payout_allocations WHERE request_id=?').all(requestId);
       for(const a of owners){
         db.prepare("UPDATE reward_orders SET status='payout-in-flight' WHERE order_id=?").run(a.order_id);
@@ -363,6 +388,7 @@ export function createLightningRewardReservationStore({databasePath, walletId, n
           if(!other){const o=getOrder.get(a.order_id);db.prepare('UPDATE reward_orders SET status=? WHERE order_id=?').run(Date.parse(o.expires_at)<=nowMillis(clock)?'earned':'active',o.order_id);}
           event(a.order_id,'payout-failed',receiptRef,{requestId});
         }
+        invalidateWalletSnapshot();
         return {state:'failed',replay:false};
       }
       const gross=integer(amountSentMsat,'network actual amountSentMsat');
@@ -389,6 +415,7 @@ export function createLightningRewardReservationStore({databasePath, walletId, n
       if(paidTotal!==requested||remainingFee!==0n)throw Error('payout allocation sum mismatch');
       db.prepare("UPDATE payouts SET state='complete',fee_paid_msat=?,receipt_ref=?,updated_at=? WHERE request_id=?")
         .run(paidFee.toString(),receiptRef,utc(nowMillis(clock)),requestId);
+      invalidateWalletSnapshot();
       return {state:'complete',replay:false,paidMsat:requested.toString(),feeMsat:paidFee.toString()};
     });
   }
