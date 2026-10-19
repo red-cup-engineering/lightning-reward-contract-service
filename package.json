@@ -20,5 +20,9 @@
   "dependencies": {
     "@red-cup-engineering/capability-pricing-service": "0.1.4"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/red-cup-engineering/lightning-reward-contract-service.git"
+  }
 }
