@@ -1,5 +1,12 @@
 # Lightning Reward Contract Service — YABCM regtest receiving candidate
 
+<!-- 561-group-standards:badges:start -->
+[![Red Cup Engineering](https://img.shields.io/badge/561%20Group-Red%20Cup%20Engineering-c0392b)](https://github.com/red-cup-engineering)
+[![License: MIT](https://img.shields.io/badge/license-MIT-c0392b)](LICENSE)
+[![Indigenous data: CARE](https://img.shields.io/badge/Indigenous%20data-CARE-4b6f44)](https://github.com/red-cup-engineering/.github/blob/main/GOVERNANCE.md)
+[![Tips welcome](https://img.shields.io/badge/tips-welcome-d4a017)](https://github.com/561-group/.github/blob/main/TIPS.md)
+<!-- 561-group-standards:badges:end -->
+
 **Source owner:** Red Cup Engineering → Financial Engineering. **Consumer:** Causeway Public Agent Services / Yet Another Bitcoin Cloud Miner (YABCM). **Other upstream suppliers:** Red Cup Capability Pricing `./fixed-term-reward-ceiling` and `./prefunded-lightning-inventory`. **Production status:** runnable **regtest-only** source and isolated fixture integration; **NOT mainnet, live sales, real advertiser callback, x402 checkout, or customer-facing payouts**.
 
 ## Actual problem this solves
