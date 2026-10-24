@@ -105,7 +105,7 @@ The product is no longer just a browser-local timer or a read-only reserve quote
 
 ### Assemble a real local preview from the **owning** sections
 
-First, as the authorized builder, build the Causeway YABCM site from its `site.json` using the original [Red Cup Web Game Engineering publisher](https://github.com/red-cup-engineering/web-game-services-section/tree/main/services/virtual-miner-experience-service):
+First, as the authorized builder, build the Causeway YABCM site from its `site.json` using the original [Red Cup Web Game Engineering publisher](https://github.com/red-cup-engineering/web-game-engineering-services-section/tree/main/services/virtual-miner-experience-service):
 
 ```sh
 cd /path/to/web-game-services-section/services/virtual-miner-experience-service
